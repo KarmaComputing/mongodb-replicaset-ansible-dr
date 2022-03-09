@@ -1,0 +1,45 @@
+---
+- name: Install mongo
+  hosts: all
+  remote_user: root
+  tasks:
+
+  - name: Template a file to /etc/yum.repos.d/mongodb-org-3.6.repo
+    template:
+      src: ./mongo/mongodb-org-3.6.repo
+      dest: /etc/yum.repos.d/mongodb-org-3.6.repo
+      owner: root
+
+  - name: Install mongodb-org
+    yum:
+      name: mongodb-org
+      state: present
+
+  - name: Template mongo keyfile to /var/lib/mongodb/keyfile
+    template:
+      src: ./mongo/keyfile
+      dest: /var/lib/mongo/keyfile
+      owner: mongod
+      group: mongod
+      mode: '400'
+
+  - name: Template mongo mongod.conf to /etc/mongod.conf
+    template:
+      src: ./mongo/mongod.conf
+      dest: /etc/mongod.conf
+      owner: root
+      group: root
+
+  - name: Enable service mongod and ensure it is not masked
+    ansible.builtin.systemd:
+      name: mongod
+      enabled: yes
+      masked: no
+
+  - name: Set nproc to 32000 for 
+    community.general.pam_limits:
+      domain: '*'
+      limit_type: soft
+      limit_item: nproc
+      value: 32000
+
