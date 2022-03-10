@@ -15,7 +15,13 @@
       name: mongodb-org
       state: present
 
+  - name: Install tmux
+    yum:
+      name: tmux
+      state: present
+
   - name: Template mongo keyfile to /var/lib/mongodb/keyfile
+    # The keyfile was created using: openssl rand -base64 756 > keyfile
     template:
       src: ./mongo/keyfile
       dest: /var/lib/mongo/keyfile
@@ -42,4 +48,9 @@
       limit_type: soft
       limit_item: nproc
       value: 32000
+
+  - name: Start mongod service
+    ansible.builtin.systemd:
+      name: mongod
+      state: started
 
