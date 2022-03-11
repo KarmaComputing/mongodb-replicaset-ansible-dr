@@ -23,9 +23,16 @@ python connect-example.py
 # Read more: https://pymongo.readthedocs.io/en/stable/tutorial.html
 ```
 
-# TODO fill database
+# Fill database with dummy data
 
-https://www.mongodb.com/developer/how-to/seed-database-with-fake-data/
+Pretty crude/basic fill of database:
+```
+. venv/bin/activate
+python seeddb.py
+```
+
+(Based on [mongodb article](https://www.mongodb.com/developer/how-to/seed-database-with-fake-data/)
+converted to python).
 
 
 ## References
