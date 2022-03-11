@@ -1,2 +1,4 @@
 ./mongo/keyfile
 .env
+apache.log
+venv

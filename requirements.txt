@@ -1,3 +1,4 @@
 pymongo==4.0.2
 python-dotenv==0.19.2
 Faker==13.3.1
+log-generator==1.0.2
