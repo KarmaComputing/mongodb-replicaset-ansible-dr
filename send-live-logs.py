@@ -9,10 +9,6 @@ import time
 import subprocess
 import select
 
-# Based on:
-# https://www.mongodb.com/developer/how-to/seed-database-with-fake-data/
-# Converted to python
-
 load_dotenv(verbose=True)  # take environment variables from .env.
 
 fake = Faker()
