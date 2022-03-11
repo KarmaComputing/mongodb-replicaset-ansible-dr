@@ -30,14 +30,23 @@ def randomIntFromInterval(min, max):
 
 def seedDB():
     client = getClient()
-    db = client.iot
-    collection = db.kitty_litter_time_series
     # Delete everything
     # collection.drop()
+
+    # Raw logs
+    with open("apache.log") as rawLogs:
+        for log in rawLogs:
+            db = client.logs
+            collection = db.rawLogs
+            rawLog = {"rawLog": log}
+            collection.insert_one(rawLog)
+
     # Make a bunch of time series data
+    db = client.iot
+    collection = db.kitty_litter_time_series
     timeSeriesData = []
 
-    for i in range(0, 100000):
+    for i in range(0, 800000):
         firstName = fake.first_name()
         lastName = fake.last_name()
         newDay = {
