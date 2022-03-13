@@ -1,4 +1,4 @@
-# Mongodb ansibple replica set cluster
+# Mongodb ansible replica set cluster
 
 Example usage
 ```
