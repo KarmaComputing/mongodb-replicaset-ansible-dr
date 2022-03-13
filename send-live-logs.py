@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+import pymongo
 from dotenv import load_dotenv
 import os
 
@@ -38,15 +39,21 @@ def seedDB():
 
     while True:
         if p.poll(1):
-            newLine = f.stdout.readline()
-            print(newLine)
+            newLine = f.stdout.readline().decode("utf-8")
+            # print(newLine)
             time.sleep(0.05)
             # Raw logs
             db = client.logs
             collection = db.rawLogs
             rawLog = {"rawLog": newLine}
-            print(f"Sending new live log to mongo: {rawLog}")
+            # print(f"Sending new live log to mongo: {rawLog}")
             collection.insert_one(rawLog)
 
 
-seedDB()
+try:
+    seedDB()
+except pymongo.errors.AutoReconnect as e:
+    print(f"Got pymongo.errors.AutoReconnect {e}")
+    print("Attempting reconnection...")
+    time.sleep(0.25)
+    seedDB()
