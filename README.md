@@ -1,4 +1,34 @@
-# Mongodb ansible replica set cluster
+# Mongodb migration from one datacenter to another
+
+Objective:
+- Migrate a MongoDB replicaset cluster live with minimal downtime (ideally no downtime at all)
+
+This repo demonstrates how to migrate a MongoDB replicaset cluster from one MongoDB cluster to another.
+
+The general steps are as follows:
+
+1. Create a new (empty) host in the desired new datacenter with mongodb installed, and same keyfile as the old cluster
+2. Add the new (empty) host to the new cluster
+3. Wait for the new replica to syncronise with the existing replica set
+4. Update any applications, as required, to be aware of the new hosts in the replica set
+5. Verify all applications can reach and authenticate with the new cluster
+6. Gradually reduce the number of hosts in the old cluster, one at a time, until the old cluster is down
+
+### MongoDB cheet sheet commands
+
+- Which node is the current primary?
+
+	`$ mongo --host localhost:27017 --eval "rs.isMaster().primary"`
+
+	Or
+	`rs.hello()`
+- Always connect to the mongo primary, not a secondary
+
+	`mongo "mongodb://127.0.0.1/?replicaSet=rs03"`
+- MongoDB become admin
+
+	`db.getSiblingDB("admin").auth("username", "password")`
+
 
 ## Setup 
 
@@ -194,7 +224,10 @@ In another terminal, send logs to mongo (like `tail -f`)
 python send-live-logs.py
 ```
 
-Keep shortening the apache.log locally so you don't fill your own hard drive:  [credit](https://stackoverflow.com/a/18072642)
+> To send many more logs, a simple way is to use `tmux` and create mutliple terminals, each all sending logs to mongo. The logs will be duplicated, but that's OK for testing.
+
+
+Note you may want to keep shortening the apache.log locally so you don't fill your own hard drive:  [credit](https://stackoverflow.com/a/18072642)
 ```
 fallocate -c -o 0 -l 1M apache.log
 ```
@@ -224,8 +257,103 @@ docker run -it --name dbgate-instance --restart always -p 3000:3000 dbgate/dbgat
 Visit: http://127.0.0.1:3000
 Then add new Mongodb connection using "Use database URL" option (using .env setting)
 
+# Add new replica to cluster
+
+https://docs.mongodb.com/manual/tutorial/expand-replica-set/#prepare-the-data-directory
+
+Find out the primary node, and connect to it via ssh.
+
+```
+db.hello()
+```
+
+Once connected to the current Primary node, add the new replica to the MongoDB replicaset config:
+
+> Note, the `priority` is set to `0` to prevent the new node from being elected as primary. This is important incase client applications are unable to connect to the new node, as this could cause an outage.
+
+> Using a DNS hostname is prefered over and ip address.
+```
+rs.add( { host: "<ip-address>s:27017", "priority": 0 } )
+```
+## Get the status of a new syncing replica:
+
+> No way to know exact progress [ref](https://stackoverflow.com/questions/28180167/how-to-determine-overall-progress-of-the-startup2-btree-bottom-up-step).
+
+1. Authenticate with mongodb
+2. Issue `rs.status()`
+
+3. Observe: `"stateStr" : "STARTUP2"` , which mean the node is still syncing with the other replicas
+
+```
+		{
+			"_id" : 6,
+			"name" : "<ip-address>:27017",
+			"health" : 1,
+			"state" : 5,
+			"stateStr" : "STARTUP2",
+			"uptime" : 461,
+			"optime" : {
+				"ts" : Timestamp(0, 0),
+				"t" : NumberLong(-1)
+			},
+			"optimeDate" : ISODate("1970-01-01T00:00:00Z"),
+			"syncingTo" : "<ip-address>:27017",
+			"syncSourceHost" : "<ip-address>:27017",
+			"syncSourceId" : 5,
+			"infoMessage" : "",
+			"configVersion" : 4,
+			"self" : true,
+			"lastHeartbeatMessage" : ""
+		}
+```
 
 
+## Allow / promote new node to a voting node so it *may* become a primary
+
+> Note *may* become a primary, not always. Only if a node wins the election will it become a primary.
+
+### Change replica priority
+See MongoDocs [adjust-replica-set-member-priority](https://docs.mongodb.com/manual/tutorial/adjust-replica-set-member-priority/)
+
+
+Connect to primary then:
+
+```
+db.hello() # find primary
+db.getSiblingDB("admin").auth("admin","changeme")
+```
+
+Get current config:
+```
+cfg = rs.conf()
+```
+
+Identify which replica you want to change, e.g the sixth one, and change it's priority to `1` (causing it to be a voting node):
+
+```
+cfg.members[5].priority = 1
+```
+
+Save the change:
+```
+rs03:PRIMARY> rs.reconfig(cfg)
+````
+Observe:
+```
+{ "ok" : 1 }
+```
+
+
+## Troubleshooting
+### errors when adding a new replica
+
+`F -        [repl writer worker 3] out of memory.`
+
+How to resovle: 
+
+Power off, increase ram, restart mongo service (may take a long time, cpu 100%)
+See logs: 
+```INDEX    [repl writer worker 8] 	 building index using bulk method; build may temporarily use up to 500 megabytes of RAM``` (500MB is the default for mongodb 3.6)
 
 ## References
 
