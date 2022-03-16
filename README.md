@@ -269,11 +269,11 @@ db.hello()
 
 Once connected to the current Primary node, add the new replica to the MongoDB replicaset config:
 
-> Note, the `priority` is set to `0` to prevent the new node from being elected as primary. This is important incase client applications are unable to connect to the new node, as this could cause an outage.
+> Note, the `priority` is set to `0`, and `votes` to `0` to prevent the new node from being elected as primary. This is important incase client applications are unable to connect to the new node, as this could cause an outage.
 
 > Using a DNS hostname is prefered over and ip address.
 ```
-rs.add( { host: "<ip-address>s:27017", "priority": 0 } )
+rs.add( { host: "<ip-address>s:27017", "priority": 0, "votes": 0 } )
 ```
 ## Get the status of a new syncing replica:
 
@@ -332,6 +332,7 @@ Identify which replica you want to change, e.g the sixth one, and change it's pr
 
 ```
 cfg.members[5].priority = 1
+cfg.members[5].votes = 1
 ```
 
 Save the change:
@@ -342,6 +343,36 @@ Observe:
 ```
 { "ok" : 1 }
 ```
+
+# On-prem to AWS connectivity (Wireguard VPN tunneling)
+
+> tldr: Install wireguard on the bastion host, and allow traffic Wireguard only traffic from the basion to the private subnets using two Security groups.
+
+
+> The first Security Group will allow access to the WireGuard server from the Internet
+
+> The second Security Group will allow access to the internal application from the WireGuard server (and block all other access).
+
+1. **First security group**:
+    
+	Create a new Security group `wireguard-bastion` for the bastion host to allow incomming traffic (UDP port 51820) and assign this Security Group to the bastion host.
+
+
+2. **Seccond security group**:
+
+    Create a new Securtiy Group called  `access-from-wireguard-bastion`. With inbound rule to allow all protocol and all port ranges. The `source` must be the id of the `wireguard-bastion` security group.
+
+	Assign this Security Group to each of the mongodb nodes, which will have the effect of on premise wireguard nodes to be able to connect to AWS instances in the private subnets during the dataloading process.
+
+
+
+SSH into the bastion/wg server
+
+Install wireguard using centos method https://www.wireguard.com/install/
+
+
+Ref docs [procustodibus guide wireguard-with-aws-private-subnets](https://www.procustodibus.com/blog/2021/02/wireguard-with-aws-private-subnets/)
+
 
 
 ## Troubleshooting
@@ -354,6 +385,20 @@ How to resovle:
 Power off, increase ram, restart mongo service (may take a long time, cpu 100%)
 See logs: 
 ```INDEX    [repl writer worker 8] 	 building index using bulk method; build may temporarily use up to 500 megabytes of RAM``` (500MB is the default for mongodb 3.6)
+
+
+### `"errmsg" : "Replica set configuration contains 8 voting members, but must be at least 1 and no more than 7",
+`
+How to resolve: reduce votes to 0, prioroty to 0. 
+
+
+### `AuthenticationFailed: SCRAM authentication failed, storedKey mismatch`
+
+Are you sure old replicas arn't still trying to connect? Check the source of the error.
+
+### `(not reachable/healthy)` / `Couldn't get a connection within the time limit`
+
+
 
 ## References
 
